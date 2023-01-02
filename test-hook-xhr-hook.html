@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+<script src="main.js"></script>
+<script type="text/javascript">
+
+    setTimeout(() => {
+
+        // // 用xhr hook添加参数
+        // (() => {
+        //     const openHolder = XMLHttpRequest.prototype.open;
+        //     XMLHttpRequest.prototype.open = function(method, url, isAsync) {
+        //         url += "?&foo=bar"
+        //         arguments[1] = url;
+        //         openHolder.apply(this, arguments);
+        //     }
+        // })();
+
+        const xhr = new XMLHttpRequest();
+        const method = "GET";
+        const url = "http://localhost:63342/js-xhr-monitor-debugger-hook/test-hook-xhr-hook.html?_ijt=b37t7bcl42rqgt0jb5si3qb062";
+        xhr.open(method, url, true);
+        xhr.setRequestHeader("aa", "bb");
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+                console.log(xhr.responseText)
+            }
+        }
+
+
+        xhr.send();
+    }, 1000);
+
+</script>
+</body>
+</html>

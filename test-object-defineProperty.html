@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+
+
+<script type="text/javascript">
+
+    // let definePropertyHolder = Object.defineProperty;
+    // Object.defineProperty(Object.prototype, "defineProperty", {
+    //     get: () => {
+    //         return definePropertyHolder;
+    //     },
+    //     set: newValue => {
+    //         return definePropertyHolder = newValue;
+    //     }
+    // })
+
+    const definePropertyHolder = Object.defineProperty;
+    Object.defineProperty = function() {
+        if (arguments.length > 1) {
+        }
+        definePropertyHolder.apply(this, arguments);
+    }
+
+    console.log(Object.defineProperty);
+    const foo = {};
+    Object.defineProperty(foo, "bar", {
+        get: () => {
+        },
+        set: newValue => {
+        }
+    })
+
+
+
+</script>
+</body>
+</html>
