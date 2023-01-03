@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         XHR Hook
-// @namespace    https://github.com/CC11001100/js-xhr-monitor-debugger-hook
+// @name         XHR Monitor Debugger Hook
+// @namespace    https://github.com/JSREI/js-xhr-monitor-debugger-hook
 // @version      0.1
-// @description  XHR相关的一些Hook
+// @description  XHR相关的一些Hook，用于辅助提高XHR类型的加密的逆向效率
 // @author       CC11001100
 // @match       *://*/*
 // @run-at      document-start
@@ -14,7 +14,156 @@
     // TODO 把XMLHttpRequestHook.prototype.open保护起来，以免有直接通过XMLHttpRequestHook.prototype.open设置参数的情况
 
     // 目前所有的xhr断点
-    const xhrDebuggerArray = [];
+    const xhrDebuggerArray = [{
+        // { string | RegExp | null } 对要访问的连接过滤
+        requestUrlCondition: "api/ccw/project/evaluation/getList/",
+
+        // { string | RegExp | null } 对发送的请求中的参数名过滤
+        requestParamNameCondition: null,
+
+        // { string | RegExp | null } 对发送的请求中的参数值过滤
+        requestParamValueCondition: null,
+
+        // { string | RegExp | null } 对发送的请求中的请求头的名字过滤
+        setRequestHeaderNameCondition: null,
+
+        // { string | RegExp | null } 对发送的请求中的请求头的值过滤
+        setRequestHeaderValueCondition: null,
+
+        // { string | RegExp | null } 按请求头过滤
+        requestBodyCondition: null,
+
+        // { string | RegExp | null } 对响应头的名字过滤
+        getResponseHeaderNameCondition: null,
+
+        // { string | RegExp | null } 对响应头的值过滤
+        getResponseHeaderValueCondition: null,
+
+        // { string | RegExp | null } 按响应体过滤
+        responseBodyCondition: null,
+
+        // { boolean } 是否在请求发送前进入断点
+        enableDebuggerBeforeRequestSend: true,
+
+        // { boolean } 是否在请求发送后进入断点
+        enableDebuggerAfterResponseReceive: true,
+
+        // TODO
+        // 设置触发各种操作的时候是否开启断点，以避免断点太多太烦
+        actionDebuggerEnable: {
+            open: true,
+            setRequestHeader: true,
+            send: true,
+            // 执行回调的时候
+            responseCallback: true,
+            visitResponseAttribute: false,
+        }
+    },
+
+        // 断点可以同时存在多个，数组继续往下放就可以了
+        // {
+        //     // { string | RegExp | null } 对要访问的连接过滤
+        //     requestUrlCondition: null,
+        //
+        //     // { string | RegExp | null } 对发送的请求中的参数名过滤
+        //     requestParamNameCondition: null,
+        //
+        //     // { string | RegExp | null } 对发送的请求中的参数值过滤
+        //     requestParamValueCondition: null,
+        //
+        //     // { string | RegExp | null } 对发送的请求中的请求头的名字过滤
+        //     setRequestHeaderNameCondition: null,
+        //
+        //     // { string | RegExp | null } 对发送的请求中的请求头的值过滤
+        //     setRequestHeaderValueCondition: null,
+        //
+        //     // { string | RegExp | null } 按请求头过滤
+        //     requestBodyCondition: null,
+        //
+        //     // { string | RegExp | null } 对响应头的名字过滤
+        //     getResponseHeaderNameCondition: null,
+        //
+        //     // { string | RegExp | null } 对响应头的值过滤
+        //     getResponseHeaderValueCondition: null,
+        //
+        //     // { string | RegExp | null } 按响应体过滤
+        //     responseBodyCondition: null,
+        //
+        //     // { boolean } 是否在请求发送前进入断点
+        //     enableDebuggerBeforeRequestSend: true,
+        //
+        //     // { boolean } 是否在请求发送后进入断点
+        //     enableDebuggerAfterResponseReceive: true,
+        // },
+
+    ];
+
+    // -------------------------------------------- --------------------------------------------------------------------
+
+    /**
+     * 用于分发生成唯一ID
+     */
+    class IDGenerator {
+
+        /**
+         * 可以制定一个可选的ID前缀，如果指定的话生成的每个ID都有相同的前缀，未指定的话则ID无前缀只是一个自增的数字
+         *
+         * @param idPrefix
+         */
+        constructor(idPrefix = "") {
+            this.idPrefix = idPrefix;
+            this.next = 1;
+        }
+
+        /**
+         * 返回下一个ID
+         *
+         * @return {string|number}
+         */
+        nextID() {
+            const next = this.next;
+            this.next++;
+            if (this.idPrefix) {
+                return `${this.idPrefix}-${next.toString().padStart(8, "0")}`;
+            } else {
+                return next;
+            }
+        }
+    }
+
+    // -------------------------------------------- --------------------------------------------------------------------
+
+    /**
+     * 用于全局暴露函数
+     */
+    class GlobalVariableManager {
+
+        constructor() {
+            this.idGenerator = new IDGenerator();
+            this.cacheMap = new Map();
+        }
+
+        /**
+         * 暴露一个函数到全局作用域，如果之前已经暴露过则返回之前的名称，否则分配一个新的名称，暴露之后把新的名称返回
+         *
+         * @param globalVariablePrefix {string} 可以指定一个可选的全局前缀，如果指定了的话挂载到的全局变量则会使用这个字符串作为前缀
+         * @param funcPointer {Function} 要挂载为全局的函数
+         */
+        setGlobal(globalVariablePrefix, funcPointer) {
+            if (this.cacheMap.has(funcPointer)) {
+                return this.cacheMap.get(funcPointer);
+            }
+            const globalVariable = `cc11001100_xhr_monitor_debugger_hook_${globalVariablePrefix}_${this.idGenerator.next()}`;
+            window[globalVariable] = funcPointer;
+            this.cacheMap[funcPointer] = globalVariable;
+            return globalVariable;
+        }
+
+    }
+
+    const globalVariableManager = new GlobalVariableManager();
+
+    // -------------------------------------------- --------------------------------------------------------------------
 
     // // 不让清屏
     // window.console.clear = function () {
@@ -25,37 +174,46 @@
     // }
 
     /**
-     * 这个类用于负责Class、原型相关的的操作
+     * 这个类用于负责Class、原型相关的的Hook替换操作
      */
     class XMLHttpRequestPrototypeHook {
 
+        /**
+         * 向原型链上添加Hook
+         */
         hook() {
+            // 持有一份最纯净的原型
+            const ancestorXMLHttpRequestHolder = window.XMLHttpRequest;
+            // 这个持有的是当前最新的值，如果有多次Hook的话可能会被修改
             let XMLHttpRequestHolder = window.XMLHttpRequest;
+            let cachedProxyXHR = null;
             Object.defineProperty(window, "XMLHttpRequest", {
                 get: () => {
-                    return new Proxy(XMLHttpRequestHolder, {
-                        // new XMLHttpRequest()的时候给替换掉返回的对象
-                        construct(target, argArray, newTarget) {
-                            const xhrObject = new XMLHttpRequestHolder();
-                            return new XMLHttpRequestObjectHook(xhrObject).addHook();
-                        }, get(target, p, receiver) {
-                            // TODO 当访问原型的时候将其拦截住，因为有些拦截器是通用在原型上添加的
-                            // 应该如何Hook住对原型链的修改呢？
-                            if (p === "prototype") {
-                                debugger;
-                                return new Proxy(target[p], {
-                                    get(target, p, receiver) {
-                                        debugger;
-                                        return target[p];
-                                    }
-                                });
-                            }
-                            return target[p];
-                        }
-                    });
+                    if (!cachedProxyXHR) {
+                        cachedProxyXHR = new Proxy(XMLHttpRequestHolder, {
+                            // new XMLHttpRequest()的时候给替换掉返回的对象
+                            construct(target, argArray, newTarget) {
+                                const xhrObject = new XMLHttpRequestHolder();
+                                return new XMLHttpRequestObjectHook(xhrObject).addHook();
+                            },
+                            // get(target, p, receiver) {
+                            //     return target[p];
+                            // },
+                            // getPrototypeOf(target) {
+                            //     // 应该如何Hook住对原型链的修改呢？
+                            //     // TODO 当访问原型的时候将其拦截住，因为有些拦截器是通用在原型上添加的
+                            //     debugger;
+                            // }
+                        });
+                    }
+                    return cachedProxyXHR;
                 }, set: newValue => {
+                    // 缓存失效
+                    cachedProxyXHR = null;
+                    // 设置为新的值，可能会存在多层嵌套的情况
                     XMLHttpRequestHolder = newValue;
-                }, configurable: true,
+                },
+                configurable: true,
             })
         }
     }
@@ -65,17 +223,25 @@
      */
     class XMLHttpRequestObjectHook {
 
+        static xhrIDGenerator = new IDGenerator("CC1100110-XHR-ID");
+
         /**
+         * 为XHR对象添加Hook
          *
          * @param xhrObject
          */
         constructor(xhrObject) {
             // 被Hook的xhr对象
             this.xhrObject = xhrObject;
-            // 持有着xhr相关的一些上下文信息
-            this.xhrContext = new XMLHttpRequestContext();
+            // 持有着xhr相关的一些上下文信息，为其初始化一个
+            this.xhrContext = new XMLHttpRequestContext(XMLHttpRequestObjectHook.xhrIDGenerator.nextID());
         }
 
+        /**
+         * 为被Hook的XHR对象添加各种Hook
+         *
+         * @return {boolean|(function(): (*|null))|*|(() => void)|ProgressEvent<FileReader>|ProgressEvent<XMLHttpRequestEventTarget>|Event|((reason?: any) => Promise<void>)|((reason?: any) => AbortSignal)|(() => Promise<void>)|((reason?: any) => void)|UnderlyingSinkAbortCallback|((mime: string) => void)|Proxy<Function>}
+         */
         addHook() {
             const _this = this;
             return new Proxy(this.xhrObject, {
@@ -161,47 +327,135 @@
         addVisitResponsePropertyHook(propertyName) {
             const _this = this;
 
-            // 打日志
+            // 打印拦截到访问XHR响应属性的日志
             try {
-                const valueStyle = `color: black; background: #669934; font-size: ${consoleLogFontSize}px; font-weight: bold;`;
-                const normalStyle = `color: black; background: #65CC66; font-size: ${consoleLogFontSize}px;`;
+                const valueStyle = `color: black; background: #CCCC00; font-size: ${consoleLogFontSize}px; font-weight: bold;`;
+                const normalStyle = `color: black; background: #EEEE33; font-size: ${consoleLogFontSize}px;`;
                 const message = [
-                    normalStyle, now(),
-                    normalStyle, "XHR Hook: ",
-                    valueStyle, "xhr response",
-                    normalStyle, ", url = ",
-                    valueStyle, `${_this.xhrContext.requestUrlString}, `,
-                    normalStyle, ", response = ",
-                    valueStyle, `${_this.xhrObject[propertyName]}, `,
-                    normalStyle, `, code location = ${cc11001100_getCodeLocation()}`];
+
+                    normalStyle,
+                    now(),
+
+                    normalStyle,
+                    " XHR Monitor Debugger Hook: ",
+
+                    normalStyle,
+                    "xhr request id = ",
+
+                    valueStyle,
+                    `${_this.xhrContext.id}`,
+
+                    normalStyle,
+                    ", action = ",
+
+                    valueStyle,
+                    "visit xhr response attribute",
+
+                    normalStyle,
+                    ", url = ",
+
+                    valueStyle,
+                    `${_this.xhrContext.requestUrlString}`,
+
+                    normalStyle,
+                    `, visit response attribute name = `,
+
+                    valueStyle,
+                    `${propertyName}`,
+
+                    normalStyle,
+                    ", value = ",
+
+                    valueStyle,
+                    `${_this.xhrObject[propertyName]}`,
+
+                    normalStyle,
+                    `, code location = ${cc11001100_getCodeLocation()}`];
                 console.log(genFormatArray(message), ...message);
             } catch (e) {
                 console.error(e);
             }
 
-            // 断点测试
-            this.xhrContext[propertyName] = this.xhrObject[propertyName];
-            for (let xhrDebugger of xhrDebuggerArray) {
-                if (xhrDebugger.test(this.xhrContext)) {
-                    debugger;
+            try {
+                // 断点测试
+                this.xhrContext[propertyName] = this.xhrObject[propertyName];
+                for (let xhrDebugger of xhrDebuggerArray) {
+                    if (xhrDebugger.test(this.xhrContext)) {
+                        // 当前操作： XMLHttpRequest visit response attribute
+                        debugger;
+                    }
                 }
+            } catch (e) {
+                console.error(e);
             }
             return this.xhrObject[propertyName];
         }
 
+        /**
+         * 为XHR添加事件响应函数时将被拦截到
+         *
+         * @return {*}
+         */
         addAddEventListenerHook() {
             const _this = this;
             return new Proxy(this.xhrObject.addEventListener, {
                 apply(target, thisArg, argArray) {
+
+                    const [eventName, eventFunction] = argArray
+
+                    // 打印拦截到访问XHR响应属性的日志
                     try {
-                        const {eventName, eventFunction} = argArray
-                        switch (eventName) {
-                            case "readystatechange":
-                            // TODO
-                        }
+                        const valueStyle = `color: black; background: #669934; font-size: ${consoleLogFontSize}px; font-weight: bold;`;
+                        const normalStyle = `color: black; background: #65CC66; font-size: ${consoleLogFontSize}px;`;
+                        const message = [
+
+                            normalStyle,
+                            now(),
+
+                            normalStyle,
+                            "XHR Monitor Debugger Hook: ",
+
+                            normalStyle,
+                            "id = ",
+
+                            valueStyle,
+                            `${_this.xhrContext.id}, `,
+
+                            normalStyle,
+                            "xhr url = ",
+
+                            // valueStyle,
+                            // `${_this.xhrContext.requestUrlString}, `,
+                            //
+                            // normalStyle,
+                            // `visit response attribute name = `,
+                            //
+                            // valueStyle,
+                            // `${propertyName}, `,
+                            //
+                            // normalStyle,
+                            // "value = ",
+                            //
+                            // valueStyle,
+                            // `${_this.xhrObject[propertyName]}, `,
+
+                            normalStyle,
+                            `, code location = ${cc11001100_getCodeLocation()}`];
+                        console.log(genFormatArray(message), ...message);
                     } catch (e) {
                         console.error(e);
                     }
+
+                    // TODO 2023-1-3 01:21:21 断点测试
+                    try {
+                        // switch (eventName) {
+                        //     case "readystatechange":
+                        //     // TODO
+                        // }
+                    } catch (e) {
+                        console.error(e);
+                    }
+
                     return target.apply(_this.xhrObject, argArray);
                 }
             });
@@ -218,7 +472,7 @@
                 apply(target, thisArg, argArray) {
 
                     // 从第三个参数开始是可选的
-                    const [method, url, async, user, password] = argArray;
+                    const [method, url, isAsync, user, password] = argArray;
 
                     _this.xhrContext.requestUrlString = url;
                     // TODO 解析请求参数
@@ -226,14 +480,42 @@
 
                     // 打印日志
                     try {
+
                         const valueStyle = `color: black; background: #669934; font-size: ${consoleLogFontSize}px; font-weight: bold;`;
                         const normalStyle = `color: black; background: #65CC66; font-size: ${consoleLogFontSize}px;`;
-                        const message = [normalStyle, now(), normalStyle, "XHR Hook: ", valueStyle, "xhr open", normalStyle, ", url = ", valueStyle, `${url}`, // 从第三个参数开始是可选的，
+
+                        const message = [
+
+                            normalStyle,
+                            now(),
+
+                            normalStyle,
+                            " XHR Monitor Debugger Hook: ",
+
+                            normalStyle,
+                            "xhr request id = ",
+
+                            valueStyle,
+                            `${_this.xhrContext.id}`,
+
+                            normalStyle,
+                            ", action = ",
+
+                            valueStyle,
+                            "xhr open",
+
+                            normalStyle,
+                            ", url = ",
+
+                            valueStyle,
+                            `${url}`,
+
+                            // 从第三个参数开始是可选的，
                             ...(() => {
                                 return [// async
                                     ...(() => {
-                                        if (async !== undefined) {
-                                            return [normalStyle, ", async = ", valueStyle, `${async}`,];
+                                        if (isAsync !== undefined) {
+                                            return [normalStyle, ", async = ", valueStyle, `${isAsync}`,];
                                         } else {
                                             return [];
                                         }
@@ -245,7 +527,10 @@
                                             return [];
                                         }
                                     })(),];
-                            })(), normalStyle, `, code location = ${cc11001100_getCodeLocation()}`];
+                            })(),
+
+                            normalStyle,
+                            `, code location = ${cc11001100_getCodeLocation()}`];
                         console.log(genFormatArray(message), ...message);
                     } catch (e) {
                         console.error(e);
@@ -255,6 +540,7 @@
                     try {
                         for (let xhrDebugger of xhrDebuggerArray) {
                             if (xhrDebugger.test(_this.xhrContext)) {
+                                // 当前操作：XMLHttpRequest open
                                 debugger;
                             }
                         }
@@ -281,9 +567,43 @@
                     const [data] = argArray;
 
                     try {
-                        const valueStyle = `color: black; background: #669934; font-size: ${consoleLogFontSize}px; font-weight: bold;`;
-                        const normalStyle = `color: black; background: #65CC66; font-size: ${consoleLogFontSize}px;`;
-                        const message = [normalStyle, now(), normalStyle, "XHR Hook: ", valueStyle, "xhr open", normalStyle, ", url = ", valueStyle, `${_this.xhrContext.requestUrlString}`, normalStyle, ", body = ", valueStyle, `${data}`, normalStyle, `, code location = ${cc11001100_getCodeLocation()}`];
+                        const valueStyle = `color: black; background: #3399CC; font-size: ${consoleLogFontSize}px; font-weight: bold;`;
+                        const normalStyle = `color: black; background: #0099FF; font-size: ${consoleLogFontSize}px;`;
+
+                        const message = [
+
+                            normalStyle,
+                            now(),
+
+                            normalStyle,
+                            " XHR Monitor Debugger Hook: ",
+
+                            normalStyle,
+                            "xhr request id = ",
+
+                            valueStyle,
+                            `${_this.xhrContext.id}`,
+
+                            normalStyle,
+                            ", action = ",
+
+                            valueStyle,
+                            "xhr send",
+
+                            normalStyle,
+                            ", url = ",
+
+                            valueStyle,
+                            `${_this.xhrContext.requestUrlString}`,
+
+                            normalStyle,
+                            ", body = ",
+
+                            valueStyle,
+                            `${data}`,
+
+                            normalStyle,
+                            `, code location = ${cc11001100_getCodeLocation()}`];
                         console.log(genFormatArray(message), ...message);
                     } catch (e) {
                         console.error(e);
@@ -299,6 +619,7 @@
                                 // request body 是 string 类型，大多数情况下也是这种类型
                                 for (let xhrDebugger of xhrDebuggerArray) {
                                     if (xhrDebugger.test(_this.xhrContext)) {
+                                        // 当前操作：XMLHttpRequest send
                                         debugger;
                                     }
                                 }
@@ -340,9 +661,47 @@
 
                     // 打印日志
                     try {
-                        const valueStyle = `color: black; background: #669934; font-size: ${consoleLogFontSize}px; font-weight: bold;`;
-                        const normalStyle = `color: black; background: #65CC66; font-size: ${consoleLogFontSize}px;`;
-                        const message = [normalStyle, now(), normalStyle, "XHR Hook: ", valueStyle, "xhr setRequestHeader", normalStyle, ", url = ", valueStyle, `${_this.xhrContext.requestUrlString}`, normalStyle, ", requestHeaderName = ", valueStyle, `${requestHeaderName}`, normalStyle, ", requestHeaderValue = ", valueStyle, `${requestHeaderValue}`, normalStyle, `, code location = ${cc11001100_getCodeLocation()}`];
+                        const valueStyle = `color: black; background: #CC6600; font-size: ${consoleLogFontSize}px; font-weight: bold;`;
+                        const normalStyle = `color: black; background: #FF9933; font-size: ${consoleLogFontSize}px;`;
+                        const message = [
+                            normalStyle,
+                            now(),
+
+                            normalStyle,
+                            " XHR Monitor Debugger Hook: ",
+
+                            normalStyle,
+                            "xhr request id = ",
+
+                            valueStyle,
+                            `${_this.xhrContext.id}`,
+
+                            normalStyle,
+                            ", action = ",
+
+                            valueStyle,
+                            "xhr setRequestHeader",
+
+                            normalStyle,
+                            ", url = ",
+
+                            valueStyle,
+                            `${_this.xhrContext.requestUrlString}`,
+
+                            normalStyle,
+                            ", requestHeaderName = ",
+
+                            valueStyle,
+                            `${requestHeaderName}`,
+
+                            normalStyle,
+                            ", requestHeaderValue = ",
+
+                            valueStyle,
+                            `${requestHeaderValue}`,
+
+                            normalStyle,
+                            `, code location = ${cc11001100_getCodeLocation()}`];
                         console.log(genFormatArray(message), ...message);
                     } catch (e) {
                         console.error(e);
@@ -350,23 +709,22 @@
 
                     // 测试断点
                     try {
-                        debugger;
+                        // debugger;
                         // 设置上下文
                         _this.xhrContext.setRequestHeaderContext = {
-                            requestHeaderName: requestHeaderName,
-                            requestHeaderValue: requestHeaderValue,
+                            requestHeaderName: requestHeaderName, requestHeaderValue: requestHeaderValue,
                         }
                         // 测试断点
                         for (let xhrDebugger of xhrDebuggerArray) {
                             // 将鼠标移动到xhrDebugger上即可查看命中的断点是哪个
                             if (xhrDebugger.test(_this.xhrContext)) {
+                                // 当前操作：XMLHttpRequest setRequestHeader
                                 debugger;
                             }
                         }
                         // 清空上下文
                         _this.xhrContext.setRequestHeaderContext = {
-                            requestHeaderName: null,
-                            requestHeaderValue: null,
+                            requestHeaderName: null, requestHeaderValue: null,
                         };
                     } catch (e) {
                         console.error(e);
@@ -439,6 +797,7 @@
                     for (let xhrDebugger of xhrDebuggerArray) {
                         // 命中了这个断点
                         if (xhrDebugger.test(_this.xhrContext)) {
+                            // 当前操作： XMLHttpRequest onreadystatechange
                             debugger;
                         }
                     }
@@ -499,41 +858,42 @@
 
     // -------------------------------------------- 控制台指令 -----------------------------------------------------------
 
-    // window["CC11001100_xhr_hook"]
-    class Command {
-
-        init() {
-
-        }
-
-        // 列出命令帮助文档
-        help() {
-
-        }
-
-        // 添加断点
-        addDebugger() {
-
-        }
-
-        // 删除断点
-        deleteDebugger() {
-
-        }
-
-        // 列出所有断点
-        listDebugger() {
-
-        }
-
-        // 清空所有断点
-        clearDebugger() {
-
-        }
-
-    }
-
-    new Command().init();
+    // TODO 2023-1-3 01:11:07 提供一个控制台接口会使用起来方便一些吗？
+    // // window["CC11001100_xhr_hook"]
+    // class Command {
+    //
+    //     init() {
+    //
+    //     }
+    //
+    //     // 列出命令帮助文档
+    //     help() {
+    //
+    //     }
+    //
+    //     // 添加断点
+    //     addDebugger() {
+    //
+    //     }
+    //
+    //     // 删除断点
+    //     deleteDebugger() {
+    //
+    //     }
+    //
+    //     // 列出所有断点
+    //     listDebugger() {
+    //
+    //     }
+    //
+    //     // 清空所有断点
+    //     clearDebugger() {
+    //
+    //     }
+    //
+    // }
+    //
+    // new Command().init();
 
     // ----------------------------------------------------------------------------------------------------------------
 
@@ -578,7 +938,13 @@
      */
     class XMLHttpRequestContext {
 
-        constructor() {
+        /**
+         *
+         * @param id {number | string}
+         */
+        constructor(id) {
+
+            this.id = id;
 
             // 要访问的网址
             this.requestUrlString = null;
@@ -652,15 +1018,7 @@
          * @param enableDebuggerBeforeRequestSend  { boolean } 是否在请求发送前进入断点
          * @param enableDebuggerAfterResponseReceive { boolean } 是否在请求发送后进入断点
          */
-        constructor(
-            requestUrlCondition = null, requestParamNameCondition = null,
-            requestParamValueCondition = null,
-            setRequestHeaderNameCondition = null, setRequestHeaderValueCondition = null,
-            requestBodyCondition = null,
-            getResponseHeaderNameCondition = null, getResponseHeaderValueCondition = null,
-            responseBodyCondition = null,
-            enableDebuggerBeforeRequestSend = true, enableDebuggerAfterResponseReceive = true
-        ) {
+        constructor(requestUrlCondition = null, requestParamNameCondition = null, requestParamValueCondition = null, setRequestHeaderNameCondition = null, setRequestHeaderValueCondition = null, requestBodyCondition = null, getResponseHeaderNameCondition = null, getResponseHeaderValueCondition = null, responseBodyCondition = null, enableDebuggerBeforeRequestSend = true, enableDebuggerAfterResponseReceive = true) {
 
             this.debuggerId = debuggerIdCounter++;
 
@@ -724,7 +1082,7 @@
          * @return {boolean}
          */
         isNeedTestRequestUrlCondition(xhrContext) {
-            
+
         }
 
         /**
@@ -976,10 +1334,29 @@
 
     }
 
-    // TODO 临时测试
-    const xhrDebugger = new XhrDebugger();
-    xhrDebugger.setRequestHeaderNameCondition = "mcode";
-    xhrDebuggerArray.push(xhrDebugger);
+    // 把xhrDebuggerArray转换为内部使用的格式
+    const newXhrDebuggerArray = [];
+    for (let xhrDebugger of xhrDebuggerArray) {
+        newXhrDebuggerArray.push(new XhrDebugger(
+            xhrDebugger["requestUrlCondition"],
+            xhrDebugger["requestParamNameCondition"],
+            xhrDebugger["requestParamValueCondition"],
+            xhrDebugger["setRequestHeaderNameCondition"],
+            xhrDebugger["setRequestHeaderValueCondition"],
+            xhrDebugger["requestBodyCondition"],
+            xhrDebugger["getResponseHeaderNameCondition"],
+            xhrDebugger["getResponseHeaderValueCondition"],
+            xhrDebugger["responseBodyCondition"],
+            xhrDebugger["enableDebuggerBeforeRequestSend"],
+            xhrDebugger["enableDebuggerAfterResponseReceive"],
+        ));
+    }
+    while (xhrDebuggerArray.length) {
+        xhrDebuggerArray.pop();
+    }
+    for (let xhrDebugger of newXhrDebuggerArray) {
+        xhrDebuggerArray.push(xhrDebugger);
+    }
 
     // ------------------------------------------ 通用工具类 ------------------------------------------------------------
 
@@ -1037,5 +1414,6 @@
 
         return callstack[0].trim();
     }
+
 
 })();
