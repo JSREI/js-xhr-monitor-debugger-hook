@@ -14,51 +14,55 @@
     // TODO 把XMLHttpRequestHook.prototype.open保护起来，以免有直接通过XMLHttpRequestHook.prototype.open设置参数的情况
 
     // 目前所有的xhr断点
-    const xhrDebuggerArray = [{
-        // { string | RegExp | null } 对要访问的连接过滤
-        requestUrlCondition: "api/ccw/project/evaluation/getList/",
+    const xhrDebuggerArray = [
+        {
+            "setRequestHeaderNameCondition": "foo-header-name"
+        },
+        {
+            // { string | RegExp | null } 对要访问的连接过滤
+            requestUrlCondition: "api/ccw/project/evaluation/getList/",
 
-        // { string | RegExp | null } 对发送的请求中的参数名过滤
-        requestParamNameCondition: null,
+            // { string | RegExp | null } 对发送的请求中的参数名过滤
+            requestParamNameCondition: null,
 
-        // { string | RegExp | null } 对发送的请求中的参数值过滤
-        requestParamValueCondition: null,
+            // { string | RegExp | null } 对发送的请求中的参数值过滤
+            requestParamValueCondition: null,
 
-        // { string | RegExp | null } 对发送的请求中的请求头的名字过滤
-        setRequestHeaderNameCondition: null,
+            // { string | RegExp | null } 对发送的请求中的请求头的名字过滤
+            setRequestHeaderNameCondition: null,
 
-        // { string | RegExp | null } 对发送的请求中的请求头的值过滤
-        setRequestHeaderValueCondition: null,
+            // { string | RegExp | null } 对发送的请求中的请求头的值过滤
+            setRequestHeaderValueCondition: null,
 
-        // { string | RegExp | null } 按请求头过滤
-        requestBodyCondition: null,
+            // { string | RegExp | null } 按请求头过滤
+            requestBodyCondition: null,
 
-        // { string | RegExp | null } 对响应头的名字过滤
-        getResponseHeaderNameCondition: null,
+            // { string | RegExp | null } 对响应头的名字过滤
+            getResponseHeaderNameCondition: null,
 
-        // { string | RegExp | null } 对响应头的值过滤
-        getResponseHeaderValueCondition: null,
+            // { string | RegExp | null } 对响应头的值过滤
+            getResponseHeaderValueCondition: null,
 
-        // { string | RegExp | null } 按响应体过滤
-        responseBodyCondition: null,
+            // { string | RegExp | null } 按响应体过滤
+            responseBodyCondition: null,
 
-        // { boolean } 是否在请求发送前进入断点
-        enableDebuggerBeforeRequestSend: true,
+            // { boolean } 是否在请求发送前进入断点
+            enableDebuggerBeforeRequestSend: true,
 
-        // { boolean } 是否在请求发送后进入断点
-        enableDebuggerAfterResponseReceive: true,
+            // { boolean } 是否在请求发送后进入断点
+            enableDebuggerAfterResponseReceive: true,
 
-        // TODO
-        // 设置触发各种操作的时候是否开启断点，以避免断点太多太烦
-        actionDebuggerEnable: {
-            open: true,
-            setRequestHeader: true,
-            send: true,
-            // 执行回调的时候
-            responseCallback: true,
-            visitResponseAttribute: false,
-        }
-    },
+            // TODO
+            // 设置触发各种操作的时候是否开启断点，以避免断点太多太烦
+            actionDebuggerEnable: {
+                open: true,
+                setRequestHeader: true,
+                send: true,
+                // 执行回调的时候
+                responseCallback: true,
+                visitResponseAttribute: false,
+            }
+        },
 
         // 断点可以同时存在多个，数组继续往下放就可以了
         // {

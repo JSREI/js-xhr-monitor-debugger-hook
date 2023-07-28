@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>测试请求头的debugger效果</title>
+</head>
+<body>
+
+<script src="../main.js"></script>
+<script type="text/javascript">
+
+    // 为请求单独设置请求头
+    let xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = event => {
+        console.log(event);
+    }
+    xhr.setRequestHeader("foo-header-name", "foo-header-value");
+    xhr.open("get", "https://foobar.com");
+    xhr.send();
+
+    // 从原型链上统一设置请求头，对于所有请求都会带的头，这种可能会更常见一些
+    // TODO
+
+</script>
+</body>
+</html>
