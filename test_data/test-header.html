@@ -7,6 +7,7 @@
 <body>
 
 <script src="../main.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script type="text/javascript">
 
     // 为请求单独设置请求头
@@ -18,8 +19,29 @@
     xhr.open("get", "https://foobar.com");
     xhr.send();
 
+</script>
+<script type="text/javascript">
+
     // 从原型链上统一设置请求头，对于所有请求都会带的头，这种可能会更常见一些
     // TODO
+
+</script>
+<script type="text/javascript">
+
+
+    const config = {
+        headers: {
+            "foo-header-name": "foo-header-value"
+        }
+    };
+    const url = "http://foo.com";
+
+    const data = {
+    }
+
+    axios.get(url, config)
+        .then(res=> console.log(res))
+        .catch(err=> console.log(err))
 
 </script>
 </body>
